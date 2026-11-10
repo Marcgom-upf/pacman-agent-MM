@@ -151,10 +151,52 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         # Compute distance to the nearest food
 
-        if len(food_list) > 0:  # This should always be True,  but better safe than sorry
-            my_pos = successor.get_agent_state(self.index).get_position()
-            min_distance = min([self.get_maze_distance(my_pos, food) for food in food_list])
-            features['distance_to_food'] = min_distance
+        ###if len(food_list) > 0:  # This should always be True,  but better safe than sorry
+            #my_pos = successor.get_agent_state(self.index).get_position()
+            #min_distance = min([self.get_maze_distance(my_pos, food) for food in food_list])
+            #features['distance_to_food'] = min_distance
+        ###
+                # Useful information you can extract from a GameState (pacman.py)
+        successor_game_state = current_game_state.generate_pacman_successor(action)
+        new_pos = successor_game_state.get_pacman_position()
+        new_food = successor_game_state.get_food()
+        new_ghost_states = successor_game_state.get_ghost_states()
+        new_scared_times = [ghostState.scared_timer for ghostState in new_ghost_states]
+        
+        "*** YOUR CODE HERE ***"
+        # get the gost's positions and the food's as lists
+        ghosts_position = successor_game_state.get_ghost_positions()
+        food_position = new_food.as_list()
+
+        ghost_grade = 0
+        food_grade = 0
+        distance_to_ghost = float('inf')
+        ghost_scared = 0
+        num_ghost = len(ghosts_position)
+
+        # we look through all the ghosts and add their properties to grade
+        for i in range(num_ghost):
+            distance_to_ghost = manhattan_distance(new_pos, ghosts_position[i])
+            ghost_scared = new_scared_times[i]
+
+            # if we can eat the nearest ghost we reward going to it
+            if ghost_scared > 0:
+                ghost_grade += 1/(distance_to_ghost+1)
+            #if the ghost is agressive and close we discourage approaching it
+            elif distance_to_ghost < 5: 
+                ghost_grade += (-1/(distance_to_ghost+1))*1.1  #1.1 weight on the ghost so it prioritizes surviving over food
+            #if the ghost is far and harmfull, we ignore it
+
+
+        if not food_position: #if there is no more food
+            food_grade = 0
+        else:
+            distance_to_food = min(manhattan_distance(new_pos, food)for food in food_position)
+            food_grade = 1/(distance_to_food+1) # [0,1]
+
+        #print(ghost_grade, food_grade, num_ghost)
+        features['distance_to_food'] = successor_game_state.get_score() + ghost_grade + food_grade
+
         return features
 
     def get_weights(self, game_state, action):
