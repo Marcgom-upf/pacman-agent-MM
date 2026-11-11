@@ -1,0 +1,14 @@
+
+Red team baseline_team with {}:
+Loading agent team: /root/pacman-contest/pacman-agent-M&M/src/contest/baseline_team.py
+	Arguments: {}
+
+Blue team ../../agents/team_name_1/my_team.py with {}:
+Loading agent team: /root/pacman-contest/pacman-agent-M&M/agents/team_name_1/my_team.py
+	Arguments: {}
+{'display': <contest.capture_graphics_display.PacmanGraphics object at 0x7ff0c635f820>, 'red_team_name': 'Red', 'blue_team_name': 'Blue', 'agents': [<baseline_team.OffensiveReflexAgent object at 0x7ff0c635f5e0>, <my_team.OffensiveReflexAgent object at 0x7ff0c5bae8e0>, <baseline_team.DefensiveReflexAgent object at 0x7ff0c62eb070>, <my_team.DefensiveReflexAgent object at 0x7ff0c5baefd0>], 'layouts': [<contest.layout.Layout object at 0x7ff0c635f760>], 'length': 1200, 'num_games': 1, 'num_training': 0, 'record': False, 'catch_exceptions': False, 'delay_step': 0.03, 'match_id': 0, 'contest_name': 'default'}
+Red team starts
+Time is up.
+The Blue team wins by 6 points.
+
+Total Time Game: 46.0
