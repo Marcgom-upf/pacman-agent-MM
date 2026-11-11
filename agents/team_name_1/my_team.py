@@ -147,20 +147,20 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         features = util.Counter()
         successor = self.get_successor(game_state, action)
         food_list = self.get_food(successor).as_list()
-        curr = game_state.get_agent_state(self.index)
+        my_state = game_state.get_agent_state(self.index)
         new = successor.get_agent_state(self.index)
-        curr_pos = curr.get_position()
+        my_pos = my_state.get_position()
         new_pos = new.get_position()
         
-        deposit = 1 if new.num_carrying > curr.num_carrying else 0
+        deposit = 1 if new.num_carrying > my_state.num_carrying else 0
 
-        grid_width = game_state.get_walls().width
-        mid_x = (grid_width // 2) - 1 if self.red else (grid_width // 2)
-        home_positions = [(mid_x, y) for y in range(game_state.get_walls().height) if not game_state.has_wall(mid_x, y)]
+        walls = game_state.get_walls()
+        mid_x = (walls.width // 2) - 1 if self.red else (walls.width // 2)
+        home_positions = [(mid_x, y) for y in range(walls.height) if not walls[mid_x][y]]
         dist_to_home = min([self.get_maze_distance(new_pos, position) for position in home_positions])
     
         features['deposit'] = deposit
-        if curr.num_carrying >= 5 or deposit:
+        if my_state.num_carrying >= 5 or deposit:
             features['home_duty'] = dist_to_home
         else:
             features['successor_score'] = -len(food_list)  # self.get_score(successor)
@@ -196,7 +196,13 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         return features
 
     def get_weights(self, game_state, action):
-        return {'home_duty': -10, 'deposit': 200, 'successor_score': 100, 'distance_to_food': -1, 'ghost_scared_grade': -2, 'dangerous_ghost_dist': -20, 'eat_scared_ghost': 300}
+        return {'home_duty': -10,
+                'deposit': 200,
+                'successor_score': 100,
+                'distance_to_food': -1,
+                'ghost_scared_grade': -2,
+                'dangerous_ghost_dist': -20,
+                'eat_scared_ghost': 300}
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
@@ -206,6 +212,40 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     could be like.  It is not the best or only way to make
     such an agent.
     """
+    PATROL_RADIUS = 4
+    PATROL_POINTS = 3
+
+    def __init__(self, index, time_for_computing=.1):
+        super().__init__(index, time_for_computing)
+        self.patrol_points = []
+        self.patrol_idx = 0
+        self.patrol_target = None
+
+    def choose_action(self, game_state):
+        self.update_patrol(game_state)
+        return super().choose_action(game_state)
+
+    def update_patrol(self, game_state):
+
+        walls = game_state.get_walls()
+        mid_x = (walls.width // 2) - 1 if self.red else (walls.width // 2)
+        frontier = [(mid_x, y) for y in range(walls.height) if not walls[mid_x][y]]
+        base_food = (game_state.get_red_food() if self.red else game_state.get_blue_food()).as_list()
+        
+        def food_concentration(point):
+            food_sum = [1 for f in base_food if self.get_maze_distance(point, f) <= self.PATROL_RADIUS]
+            return sum(food_sum)
+
+        frontier_ranked = sorted(frontier, key=food_concentration, reverse=True)
+        self.patrol_points = frontier_ranked[:self.PATROL_POINTS] # We assign only the first values in frontier ranked (PATROL_POINTS = 3)
+        if not self.patrol_points:
+            self.patrol_target = None
+
+        self.patrol_idx = self.patrol_idx % len(self.patrol_points)
+        my_pos = game_state.get_agent_state(self.index).get_position()
+        if self.get_maze_distance(my_pos, self.patrol_points[self.patrol_idx]) <= 1:
+            self.patrol_idx = (self.patrol_idx + 1) % len(self.patrol_points)
+        self.patrol_target = self.patrol_points[self.patrol_idx]
 
     def get_features(self, game_state, action):
         features = util.Counter()
@@ -222,9 +262,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
         invaders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
         features['num_invaders'] = len(invaders)
-        if len(invaders) > 0:
+        if invaders:
             dists = [self.get_maze_distance(my_pos, a.get_position()) for a in invaders]
             features['invader_distance'] = min(dists)
+        elif self.patrol_target is not None:
+            features['patrol_distance'] = self.get_maze_distance(my_pos, self.patrol_target)
 
         if action == Directions.STOP: features['stop'] = 1
         rev = Directions.REVERSE[game_state.get_agent_state(self.index).configuration.direction]
