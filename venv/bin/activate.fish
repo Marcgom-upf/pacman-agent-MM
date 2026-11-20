@@ -29,7 +29,7 @@ end
 # unset irrelevant variables
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/root/pacman-contest/pacman-agent-M&M/venv"
+set -gx VIRTUAL_ENV "/home/madug/AI/pacman-agent-MM/venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH

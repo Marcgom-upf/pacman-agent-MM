@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/root/pacman-contest/pacman-agent-M&M/venv"
+VIRTUAL_ENV="/home/madug/AI/pacman-agent-MM/venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
