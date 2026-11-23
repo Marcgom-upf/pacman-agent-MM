@@ -317,9 +317,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         self.patrol_points = []
         self.patrol_idx = 0
         self.patrol_target = None
+        self.last_eaten_food = None
 
     def choose_action(self, game_state):
         self.update_patrol(game_state)
+        self.update_eaten_food(game_state)
         return super().choose_action(game_state)
 
     def update_patrol(self, game_state):
@@ -347,6 +349,30 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
             self.patrol_idx = (self.patrol_idx + 1) % len(self.patrol_points)
         self.patrol_target = self.patrol_points[self.patrol_idx]
 
+    def update_eaten_food(self, game_state):
+        my_pos = game_state.get_agent_position(self.index)
+        enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
+        invaders_somewhere = [e for e in enemies if e.is_pacman]
+
+        if not invaders_somewhere:
+            self.last_eaten_food = None
+            return
+        
+        if self.last_eaten_food is not None and self.get_maze_distance(my_pos, self.last_eaten_food) <= 1:
+            self.last_eaten_food = None
+
+        previous = self.get_previous_observation()
+        if previous is None:
+            return
+
+        food_before = set(self.get_food_you_are_defending(previous).as_list()) 
+        food_now = set(self.get_food_you_are_defending(game_state).as_list())
+        eaten = food_before - food_now
+        def distance_to_eaten(food):
+            return self.get_maze_distance(my_pos, food)
+        if eaten:
+            self.last_eaten_food = min(eaten, key=distance_to_eaten)
+        
     def get_features(self, game_state, action):
         features = util.Counter()
         successor = self.get_successor(game_state, action)
@@ -375,6 +401,8 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
             else:
                 features['invader_distance'] = min(dists)
         
+        elif invaders_somewhere and self.last_eaten_food is not None:
+            features['eaten_food_distance'] = self.get_maze_distance(my_pos, self.last_eaten_food)
         elif invaders_somewhere and my_capsules:
             dists = [self.get_maze_distance(my_pos, c) for c in my_capsules]
             features['capsule_distance'] = min(dists)
@@ -401,4 +429,5 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                 'scared_distance': -10,
                 'death_distance': -1000,
                 'scared_too_close': -500,
-                'capsule_distance': -10}
+                'capsule_distance': -10,
+                'eaten_food_distance': -10}
