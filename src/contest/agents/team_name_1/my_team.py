@@ -138,14 +138,96 @@ class ReflexCaptureAgent(CaptureAgent):
 
 class OffensiveReflexAgent(ReflexCaptureAgent):
     """
-  A reflex agent that seeks food. This is an agent
-  we give you to get an idea of what an offensive agent might look like,
-  but it is by no means the best or only way to build an offensive agent.
-  """
+    A reflex agent that seeks food. This is an agent
+    we give you to get an idea of what an offensive agent might look like,
+    but it is by no means the best or only way to build an offensive agent.
+    """
+    MAX_TRAPPED_TURNS = 10
+    DEFEND_TURNS_LEFT = 50
+    def __init__(self, index, time_for_computing=.1):
+        super().__init__(index, time_for_computing)
+        self.trapped = False
+        self.trapped_turns = 0
+
+    def choose_action(self, game_state):
+        self.trapped = self.is_trapped(game_state)
+        return super().choose_action(game_state)
+
+    def is_trapped(self, game_state):
+        my_state = game_state.get_agent_state(self.index)
+
+        if not my_state.is_pacman:
+            self.trapped_turns = 0
+            return False
+        enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
+        ghosts = [nearest_point(e.get_position()) for e in enemies if not e.is_pacman and e.get_position() is not None and e.scared_timer == 0] # nearest_point because we'll use the position for walls and we need int
+        
+        if not ghosts:
+            self.trapped_turns = 0
+            return False
+
+        dangerous = set()
+        walls = game_state.get_walls()
+        for gx, gy in ghosts:
+            dangerous.add((gx, gy))
+            for near_x, near_y in ((gx + 1, gy), (gx - 1, gy), (gx, gy + 1), (gx, gy - 1)):
+                if not walls[near_x][near_y]:
+                    dangerous.add((near_x, near_y))
+
+        mid_x = (walls.width // 2) - 1 if self.red else (walls.width // 2)
+        home_positions = set([(mid_x, y) for y in range(walls.height) if not walls[mid_x][y]]) #frontier with enemy
+        capsules = set(self.get_capsules(game_state)) 
+        food = set(self.get_food(game_state).as_list())
+
+        #BFS to find if there is an exit
+        start = nearest_point(my_state.get_position())
+        queue = [start]
+        visited = {start}
+        reachable_food = 0
+
+        while queue:
+            cell = queue.pop(0)
+            if cell in home_positions or cell in capsules:
+                self.trapped_turns = 0
+                return False
+            if cell in food:
+                reachable_food += 1
+            
+            x, y = cell
+            for near_cell in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if near_cell not in visited and not walls[near_cell[0]][near_cell[1]] and near_cell not in dangerous:
+                    visited.add(near_cell)
+                    queue.append(near_cell)
+
+        self.trapped_turns += 1
+
+        if reachable_food == 0:
+            return True
+        turns_left = game_state.data.timeleft // 4
+        if self.get_score(game_state) > 0 and turns_left < self.DEFEND_TURNS_LEFT: #If we're winning go defend
+            return True
+
+        if self.trapped_turns > self.MAX_TRAPPED_TURNS:
+            return True
+        return False
 
     def get_features(self, game_state, action):
         features = util.Counter()
         successor = self.get_successor(game_state, action)
+        
+        if self.trapped:
+            new_pos = successor.get_agent_state(self.index).get_position()
+            if new_pos == self.start:
+                features['suicide'] = 0
+            else:
+                enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
+                ghosts = [e.get_position() for e in enemies if not e.is_pacman and e.get_position() is not None and e.scared_timer == 0]
+                if ghosts:
+                    features['suicide'] = min(self.get_maze_distance(new_pos, g) for g in ghosts)
+            if action == Directions.STOP:
+                features['stop'] = 1                    
+            return features
+        
         food_list = self.get_food(successor).as_list()
         my_state = game_state.get_agent_state(self.index)
         new = successor.get_agent_state(self.index)
@@ -215,6 +297,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 'ghost_scared_grade': -2,
                 'dangerous_ghost_dist': -90,
                 'eat_scared_ghost': 300,
+                'suicide': -100,
                 'stop': -1000}
 
 

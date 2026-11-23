@@ -18,3 +18,6 @@ dist/
 *.swp
 .DS_Store
 *:Zone.Identifier
+
+#Testing
+tune_defense.py
