@@ -267,10 +267,10 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 ghost_d_home = min(self.get_maze_distance(d.get_position(), p) for p in home_positions)
                 if ghost_d_home < dist_to_home:
                     ghost_blocks_home = True
-            #if the ghost is agressive and close we discourage approaching it
-            if dist <= 3: 
-                features['dangerous_ghost_dist'] += (3 - dist)
-            #if the ghost is far and harmful, we ignore it
+                #if the ghost is agressive and close we discourage approaching it
+                if dist <= 3: 
+                    features['dangerous_ghost_dist'] += (3 - dist)
+                #if the ghost is far and harmful, we ignore it
 
         if (my_state.num_carrying >= 3 and not ghost_blocks_home) or deposit:
             #if we have 5 food, return home to deposit
