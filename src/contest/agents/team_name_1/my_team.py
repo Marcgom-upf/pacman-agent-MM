@@ -394,4 +394,4 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                 'patrol_distance': -10,
                 'scared_distance': -10,
                 'death_distance': -1000,
-                'scared_too_close': 500}
+                'scared_too_close': -500}
