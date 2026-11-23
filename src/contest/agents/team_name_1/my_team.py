@@ -310,6 +310,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     """
     PATROL_RADIUS = 4
     PATROL_POINTS = 3
+    SCARED_DISTANCE = 2
 
     def __init__(self, index, time_for_computing=.1):
         super().__init__(index, time_for_computing)
@@ -361,12 +362,22 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
         invaders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
         features['num_invaders'] = len(invaders)
+        
+        scared = True if (game_state.get_agent_state(self.index).scared_timer > 0) else False
         if invaders:
             dists = [self.get_maze_distance(my_pos, a.get_position()) for a in invaders]
-            features['invader_distance'] = min(dists)
+            if scared:
+                if min(dists) <= 1:
+                    features['scared_too_close'] = 1
+                features['scared_distance'] = abs(min(dists) - self.SCARED_DISTANCE)
+            else:
+                features['invader_distance'] = min(dists)
         # if there are no invaders and you have not selected a target, choose one
         elif self.patrol_target is not None:
             features['patrol_distance'] = self.get_maze_distance(my_pos, self.patrol_target)
+
+        if scared and my_pos == self.start and not game_state.get_agent_position(self.index) == self.start:
+            features['death_distance'] = 1
 
         if action == Directions.STOP: features['stop'] = 1
         rev = Directions.REVERSE[game_state.get_agent_state(self.index).configuration.direction]
@@ -380,4 +391,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                 'invader_distance': -10, 
                 'stop': -100, 
                 'reverse': -2,
-                'patrol_distance': -10}
+                'patrol_distance': -10,
+                'scared_distance': -10,
+                'death_distance': -1000,
+                'scared_too_close': 500}
