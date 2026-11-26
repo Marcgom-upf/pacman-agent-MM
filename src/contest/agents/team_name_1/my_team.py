@@ -249,22 +249,27 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         features['ghost_scared_grade'] = 0
         features['dangerous_ghost_dist'] = 0
 
-        enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
-        defenders = [a for a in enemies if not a.is_pacman and a.get_position() is not None]
-
         # we look through all the ghosts and add their properties to grade
         ghost_blocks_home = False
-        for d in defenders:
-            dist = self.get_maze_distance(new_pos, d.get_position())
+        for i in self.get_opponents(game_state): #enemies
+            g = successor.get_agent_state(i) #enemy state after my action
+            now = game_state.get_agent_state(i) #enemy state now
+
+            if g.is_pacman or g.get_position() is None:
+                continue
+
+            start_pos_g = game_state.get_initial_agent_position(i) 
+            if (now.scared_timer > 0 and now.get_position() is not None and now.get_position() != start_pos_g and g.get_position() == start_pos_g):
+                features['eat_scared_ghost'] = 1
+                continue
+
+            dist = self.get_maze_distance(new_pos, g.get_position())
             # if we can eat the nearest ghost we reward going to it
-            if d.scared_timer > 0:
-                if dist == 0:
-                    features['eat_scared_ghost'] = 1
-                else:
-                    features['ghost_scared_grade'] += dist
+            if g.scared_timer > 0:
+                features['ghost_scared_grade'] += dist
             #check if the ghost is blocking the path
-            elif d.scared_timer == 0:
-                ghost_d_home = min(self.get_maze_distance(d.get_position(), p) for p in home_positions)
+            elif g.scared_timer == 0:
+                ghost_d_home = min(self.get_maze_distance(g.get_position(), p) for p in home_positions)
                 if ghost_d_home < dist_to_home:
                     ghost_blocks_home = True
                 #if the ghost is agressive and close we discourage approaching it
@@ -272,6 +277,26 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                     features['dangerous_ghost_dist'] += (3 - dist)
                 #if the ghost is far and harmful, we ignore it
 
+        #Capsule feature
+        active_enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
+        active_ghosts = [e.get_position() for e in active_enemies if not e.is_pacman and e.get_position() is not None and e.scared_timer == 0]
+        capsules = self.get_capsules(game_state)
+
+        target_capsule = None
+        def dist_to_capsule(capsule):
+            return self.get_maze_distance(my_pos, capsule)
+        if active_ghosts and capsules:
+            dist_to_near_ghost = min(self.get_maze_distance(my_pos, ag) for ag in active_ghosts)
+            if dist_to_near_ghost <= 5: 
+                reachable_c = [c for c in capsules if dist_to_capsule(c) < min(self.get_maze_distance(ag, c) for ag in active_ghosts)]
+                if reachable_c:
+                    target_capsule = min(reachable_c, key=dist_to_capsule)
+        if target_capsule is not None:
+            features['capsule_distance'] = self.get_maze_distance(new_pos, target_capsule)
+        if len(self.get_capsules(successor)) < len(capsules):
+            features['eat_capsule'] = 1
+
+        
         if (my_state.num_carrying >= 3 and not ghost_blocks_home) or deposit:
             #if we have 5 food, return home to deposit
             features['home_duty'] = dist_to_home
@@ -298,7 +323,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 'dangerous_ghost_dist': -90,
                 'eat_scared_ghost': 300,
                 'suicide': -100,
-                'stop': -1000}
+                'stop': -1000,
+                'capsule_distance': -60,
+                'eat_capsule': 300}
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
